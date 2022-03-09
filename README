@@ -1,0 +1,8 @@
+In order to build for debugging purposes:
+
+1) Make sure you have the Rust command line interface installed (type "cargo --version" -- mine is 1.57.0)
+2) Run the command "cargo build"
+3) Execute ./target/debug/a_prototype to see the current working demo. (Currently, it isn't very impressive! Just press ESC to exit.)
+
+-Chelsea
+
