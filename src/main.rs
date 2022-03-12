@@ -12,6 +12,7 @@ extern crate raylib;
 
 use raylib::prelude::*;
 
+
 /////////////
 // DEFINES //
 /////////////
@@ -36,8 +37,8 @@ struct GraphicsSettings
     target_fps: u32,
 }
 
-// OverworldState - data structure used to keep track of player position in the overworld
-struct OverworldState
+// GameState - data structure used to keep track of higher-level game and overworld state
+struct GameState
 {
     player_x: i32,
     player_y: i32,
@@ -48,52 +49,70 @@ struct OverworldState
     enemy_y: i32,
     enemy_width: i32,
     enemy_height: i32,
+
+    // this really should be a setting/stat, not a state parameter. at least for now...
+    player_overworld_speed: i32,
+
+    ui_phase: UIPhase,
 }
 
-// GameState - data structure used to keep track of gameplay-related state info
-struct GameState
+// BattleState - data structure used to keep track of battle-related state info
+struct BattleState
 {
     player_hp: i32,
     player_sp: i32,
     enemy_hp: i32,
-
-    ui_phase: UIPhase,
-
-    overworld_state: OverworldState,
 }
+
 
 //////////////////////////////
 // STATE UPDATING FUNCTIONS //
 //////////////////////////////
 
-// TODO - key bindings should ultimately be mutable
+// TODO - key bindings should ultimately be mutable - make issue for this eventually; i'm not going
+// to address it in the 3/12 sprint
+
+// hitbox_collision - function that determines whether the player and enemy hitboxes collide
+fn hitbox_collision(game_state: &GameState) -> bool
+{
+    // TODO: implement this
+    return false;
+}
 
 // update_state_overworld - update state while player is on the overworld
 fn update_state_overworld(game_state: &mut GameState, rl: &mut RaylibHandle)
 {
     // check for player hitbox collision with enemy
-    // TODO: check for hitbox collision
+    if hitbox_collision(game_state)
+    {
+        // go directly into battle if the player and enemy collide
+        game_state.ui_phase = UIPhase::BattleActionSelect;
+    }
 
     // check if a movement key is down
     if rl.is_key_down(raylib::consts::KeyboardKey::KEY_W)
         || rl.is_key_down(raylib::consts::KeyboardKey::KEY_UP)
     {
-        // TODO: move player up
+        // move player up
+        game_state.player_y -= game_state.player_overworld_speed;
     }
     else if rl.is_key_down(raylib::consts::KeyboardKey::KEY_A)
         || rl.is_key_down(raylib::consts::KeyboardKey::KEY_LEFT)
     {
-        // TODO: move player left
+        // move player left
+        game_state.player_x -= game_state.player_overworld_speed;
     }
     else if rl.is_key_down(raylib::consts::KeyboardKey::KEY_S)
         || rl.is_key_down(raylib::consts::KeyboardKey::KEY_DOWN)
     {
-        // TODO: move player down
+        // move player down
+        game_state.player_y += game_state.player_overworld_speed;
     }
     else if rl.is_key_down(raylib::consts::KeyboardKey::KEY_D)
         || rl.is_key_down(raylib::consts::KeyboardKey::KEY_RIGHT)
     {
-        // TODO: move player right
+        // move player right
+        game_state.player_x += game_state.player_overworld_speed;
     }
 }
 
@@ -129,6 +148,7 @@ fn update_state_battle_enemy_turn(game_state: &mut GameState, rl: &mut RaylibHan
 
 // update_state - check for keyboard input and timeouts (?), and update game state according to
 // which UI phase the player is currently in
+// TODO: will probably need to pass a mutable reference to battle state into these functions as well
 fn update_state(game_state: &mut GameState, rl: &mut RaylibHandle)
 {
     match &game_state.ui_phase
@@ -142,6 +162,7 @@ fn update_state(game_state: &mut GameState, rl: &mut RaylibHandle)
         UIPhase::Victory => (),
     }
 }
+
 
 ///////////////////////
 // DRAWING FUNCTIONS //
@@ -158,7 +179,14 @@ fn draw_stub(dh: &mut RaylibDrawHandle)
 // draw_overworld - draw the overworld scene
 fn draw_overworld(dh: &mut RaylibDrawHandle)
 {
-    // TODO: draw overworld
+    // draw grassy overworld background
+    dh.clear_background(Color::GREEN);
+
+    // draw player avatar
+    // TODO: draw player
+    
+    // draw enemy
+    // TODO: draw enemy
 }
 
 // draw_battle_action_select - draw the action select phase of the battle interface
@@ -194,7 +222,11 @@ fn draw_battle_enemy_turn(dh: &mut RaylibDrawHandle)
 // draw_victory - draw the victory screen
 fn draw_victory(dh: &mut RaylibDrawHandle)
 {
-    // TODO: draw victory
+    // draw green background
+    dh.clear_background(Color::GREEN);
+
+    // draw victory text
+    // TODO: draw victory text
 }
 
 // draw_graphics - draw game graphics based on current UI phase
@@ -206,15 +238,16 @@ fn draw_graphics(game_state: &GameState, rl: &mut RaylibHandle, thread: &RaylibT
     // TODO: replace stub function calls here as functions get implemented
     match &game_state.ui_phase
     {
-        UIPhase::Overworld => draw_stub(&mut dh),
+        UIPhase::Overworld => draw_overworld(&mut dh),
         UIPhase::BattleActionSelect => draw_stub(&mut dh),
         UIPhase::BattleTargetSelect => draw_stub(&mut dh),
         UIPhase::BattleItemSelect => draw_stub(&mut dh),
         UIPhase::BattleDamageDisplay => draw_stub(&mut dh),
         UIPhase::BattleEnemyTurn => draw_stub(&mut dh),
-        UIPhase::Victory => draw_stub(&mut dh),
+        UIPhase::Victory => draw_victory(&mut dh),
     }
 }
+
 
 ///////////////////
 // MAIN FUNCTION //
@@ -225,7 +258,8 @@ fn main()
 {
 
     // initialize graphics settings
-    // TODO - graphics settings should ultimately be mutable
+    // TODO - graphics settings should ultimately be mutable - moving to external json in UG-3;
+    // player-alterable settings in graphics and key bindings are for a future sprint
     let graphics_settings = GraphicsSettings
     {
         screen_width: 800,
@@ -234,27 +268,30 @@ fn main()
     };
 
     // initialize game state parameters
-    let mut game_state = GameState
+    let mut battle_state = BattleState
     {
         player_hp: 100,
         player_sp: 20,
         enemy_hp: 60,
+    };
+
+    let mut game_state = GameState
+    {
+        // TODO - figure out player and enemy locations, and player and enemy hitbox sizes - to be
+        // done in UG-6
+        player_x: 200,
+        player_y: 200,
+        player_width: 0,
+        player_height: 0,
+
+        enemy_x: 0,
+        enemy_y: 0,
+        enemy_width: 0,
+        enemy_height: 0,
+
+        player_overworld_speed: 4,
 
         ui_phase: UIPhase::Overworld,
-
-        // TODO - figure out player and enemy locations, and player and enemy hitbox sizes
-        overworld_state: OverworldState
-        {
-            player_x: 200,
-            player_y: 200,
-            player_width: 0,
-            player_height: 0,
-            
-            enemy_x: 0,
-            enemy_y: 0,
-            enemy_width: 0,
-            enemy_height: 0,
-        }
     };
 
     // initialize raylib
