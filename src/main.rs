@@ -53,6 +53,8 @@ struct GameState
     // this really should be a setting/stat, not a state parameter. at least for now...
     player_overworld_speed: i32,
 
+    menu_selection_cursor: u32,
+
     ui_phase: UIPhase,
 }
 
@@ -77,8 +79,11 @@ fn has_hitbox_collision(game_state: &GameState) -> bool
 {
     // compute the distance from the center of the player's head to the center of the enemy
     // this is just the pythagorean distance formula
-    let head_enemy_centers_distance = f64::sqrt(f64::powi(((game_state.player_x + game_state.player_head_radius) - (game_state.enemy_x + game_state.enemy_radius)).into(), 2) +
-                                           f64::powi(((game_state.player_y + game_state.player_head_radius) - (game_state.enemy_y + game_state.enemy_radius)).into(), 2));
+    let head_enemy_centers_distance = f64::sqrt(
+                                        f64::powi(((game_state.player_x + game_state.player_head_radius) -
+                                                (game_state.enemy_x + game_state.enemy_radius)).into(), 2) +
+                                        f64::powi(((game_state.player_y + game_state.player_head_radius) -
+                                                (game_state.enemy_y + game_state.enemy_radius)).into(), 2));
 
     // check if player's head collides with enemy
     if head_enemy_centers_distance <= (game_state.player_head_radius + game_state.enemy_radius).into()
@@ -133,7 +138,48 @@ fn update_state_overworld(game_state: &mut GameState, rl: &mut RaylibHandle)
 // update_state_battle_action_select - update state while player is selecting a battle action
 fn update_state_battle_action_select(game_state: &mut GameState, rl: &mut RaylibHandle)
 {
-    // TODO: update battle action select state
+    // TODO: this value shouldn't be hard-coded (another reason for a lookup table, or perhaps a valued enum, of menu options...)
+    let action_menu_items = 3u32;
+
+    // check if an action key is down
+    if rl.is_key_down(raylib::consts::KeyboardKey::KEY_W)
+        || rl.is_key_down(raylib::consts::KeyboardKey::KEY_UP)
+    {
+        // move menu selection cursor up, if there's room to move up
+        if game_state.menu_selection_cursor > 0
+        {
+            game_state.menu_selection_cursor -= 1;
+        }
+    }
+    else if rl.is_key_down(raylib::consts::KeyboardKey::KEY_S)
+        || rl.is_key_down(raylib::consts::KeyboardKey::KEY_DOWN)
+    {
+        // move menu selection cursor down, if there's room to move down
+        if game_state.menu_selection_cursor < action_menu_items - 1
+        {
+            game_state.menu_selection_cursor += 1;
+        }
+    }
+    else if rl.is_key_down(raylib::consts::KeyboardKey::KEY_SPACE)
+        || rl.is_key_down(raylib::consts::KeyboardKey::KEY_ENTER)
+    {
+        // TODO: get rid of magic numbers; implement lookup table, perhaps?
+        if game_state.menu_selection_cursor == 0
+        {
+            // fight selected
+            game_state.ui_phase = UIPhase::BattleTargetSelect;
+        }
+        else if game_state.menu_selection_cursor == 1
+        {
+            // skills selected
+            game_state.ui_phase = UIPhase::BattleItemSelect;
+        }
+        else if game_state.menu_selection_cursor == 2
+        {
+            // items selected
+            game_state.ui_phase = UIPhase::BattleItemSelect;
+        }
+    }
 }
 
 // update_state_battle_target_select - update state while player is selecting a target in battle
@@ -187,7 +233,7 @@ fn update_state(game_state: &mut GameState, rl: &mut RaylibHandle)
 // there's probably a way to do that through an annotation-like language feature or something...
 fn draw_stub(dh: &mut RaylibDrawHandle)
 {
-    dh.clear_background(Color::GRAY);
+    dh.clear_background(Color::BLACK);
 }
 
 // draw_player - draw player on the overworld
@@ -247,12 +293,14 @@ fn draw_overworld(game_state: &GameState, dh: &mut RaylibDrawHandle)
 fn draw_battle_action_select(dh: &mut RaylibDrawHandle)
 {
     // TODO: draw battle action select
+    dh.clear_background(Color::GRAY);
 }
 
 // draw_battle_target_select - draw the target select phase of the battle interface
 fn draw_battle_target_select(dh: &mut RaylibDrawHandle)
 {
     // TODO: draw battle target select
+    dh.clear_background(Color::RED);
 }
 
 // draw_battle_item_select - draw the item select phase of the battle interface
@@ -293,8 +341,8 @@ fn draw_graphics(game_state: &GameState, rl: &mut RaylibHandle, thread: &RaylibT
     match &game_state.ui_phase
     {
         UIPhase::Overworld => draw_overworld(game_state, &mut dh),
-        UIPhase::BattleActionSelect => draw_stub(&mut dh),
-        UIPhase::BattleTargetSelect => draw_stub(&mut dh),
+        UIPhase::BattleActionSelect => draw_battle_action_select(&mut dh),
+        UIPhase::BattleTargetSelect => draw_battle_target_select(&mut dh),
         UIPhase::BattleItemSelect => draw_stub(&mut dh),
         UIPhase::BattleDamageDisplay => draw_stub(&mut dh),
         UIPhase::BattleEnemyTurn => draw_stub(&mut dh),
@@ -342,6 +390,8 @@ fn main()
         enemy_radius: 50,
 
         player_overworld_speed: 3,
+
+        menu_selection_cursor: 0,
 
         ui_phase: UIPhase::Overworld,
     };
