@@ -44,11 +44,11 @@ struct GameState
     player_y: i32,
     player_width: i32,
     player_height: i32,
+    player_head_radius: i32,
 
     enemy_x: i32,
     enemy_y: i32,
-    enemy_width: i32,
-    enemy_height: i32,
+    enemy_radius: i32,
 
     // this really should be a setting/stat, not a state parameter. at least for now...
     player_overworld_speed: i32,
@@ -72,10 +72,24 @@ struct BattleState
 // TODO - key bindings should ultimately be mutable - make issue for this eventually; i'm not going
 // to address it in the 3/12 sprint
 
-// hitbox_collision - function that determines whether the player and enemy hitboxes collide
-fn hitbox_collision(game_state: &GameState) -> bool
+// has_hitbox_collision - function that determines whether the player and enemy hitboxes collide
+fn has_hitbox_collision(game_state: &GameState) -> bool
 {
-    // TODO: implement this
+    // compute the distance from the center of the player's head to the center of the enemy
+    // this is just the pythagorean distance formula
+    let head_enemy_centers_distance = f64::sqrt(f64::powi(((game_state.player_x + game_state.player_head_radius) - (game_state.enemy_x + game_state.enemy_radius)).into(), 2) +
+                                           f64::powi(((game_state.player_y + game_state.player_head_radius) - (game_state.enemy_y + game_state.enemy_radius)).into(), 2));
+
+    // check if player's head collides with enemy
+    if head_enemy_centers_distance <= (game_state.player_head_radius + game_state.enemy_radius).into()
+    {
+        // if the distance between the circle centers is less than or equal to the sum of the
+        // circle radii, then the circles intersect, and we have a collision
+        return true;
+    }
+
+    // TODO: check if the player's body collides with the enemy
+
     return false;
 }
 
@@ -83,7 +97,7 @@ fn hitbox_collision(game_state: &GameState) -> bool
 fn update_state_overworld(game_state: &mut GameState, rl: &mut RaylibHandle)
 {
     // check for player hitbox collision with enemy
-    if hitbox_collision(game_state)
+    if has_hitbox_collision(game_state)
     {
         // go directly into battle if the player and enemy collide
         game_state.ui_phase = UIPhase::BattleActionSelect;
@@ -176,17 +190,57 @@ fn draw_stub(dh: &mut RaylibDrawHandle)
     dh.clear_background(Color::GRAY);
 }
 
+// draw_player - draw player on the overworld
+fn draw_player(game_state: &GameState, dh: &mut RaylibDrawHandle)
+{
+    // draw head
+    dh.draw_circle(game_state.player_x + game_state.player_head_radius,
+                   game_state.player_y + game_state.player_head_radius,
+                   game_state.player_head_radius as f32,
+                   Color::BLACK);
+
+    // TODO: draw body
+}
+
+// draw_enemy - draw enemy on the overworld
+// TODO: this code is way too procedural. replace with vector graphics representation?
+fn draw_enemy(game_state: &GameState, dh: &mut RaylibDrawHandle)
+{
+    // draw enemy outline
+    dh.draw_circle_lines(game_state.enemy_x + game_state.enemy_radius,
+                         game_state.enemy_y + game_state.enemy_radius,
+                         game_state.enemy_radius as f32,
+                         Color::RED);
+
+    // TODO: draw eyebrows
+
+    // draw eyes
+    dh.draw_line(game_state.enemy_x + 2 * game_state.enemy_radius / 3,
+                 game_state.enemy_y + game_state.enemy_radius / 2,
+                 game_state.enemy_x + 2 * game_state.enemy_radius / 3,
+                 game_state.enemy_y + 3 * game_state.enemy_radius / 4,
+                 Color::RED);
+    dh.draw_line(game_state.enemy_x + 4 * game_state.enemy_radius / 3,
+                 game_state.enemy_y + game_state.enemy_radius / 2,
+                 game_state.enemy_x + 4 * game_state.enemy_radius / 3,
+                 game_state.enemy_y + 3 * game_state.enemy_radius / 4,
+                 Color::RED);
+
+    // TODO: draw mouth
+}
+
 // draw_overworld - draw the overworld scene
-fn draw_overworld(dh: &mut RaylibDrawHandle)
+fn draw_overworld(game_state: &GameState, dh: &mut RaylibDrawHandle)
 {
     // draw grassy overworld background
+    // TODO: more detailed overworld background
     dh.clear_background(Color::GREEN);
 
     // draw player avatar
-    // TODO: draw player
+    draw_player(game_state, dh);
     
     // draw enemy
-    // TODO: draw enemy
+    draw_enemy(game_state, dh);
 }
 
 // draw_battle_action_select - draw the action select phase of the battle interface
@@ -238,7 +292,7 @@ fn draw_graphics(game_state: &GameState, rl: &mut RaylibHandle, thread: &RaylibT
     // TODO: replace stub function calls here as functions get implemented
     match &game_state.ui_phase
     {
-        UIPhase::Overworld => draw_overworld(&mut dh),
+        UIPhase::Overworld => draw_overworld(game_state, &mut dh),
         UIPhase::BattleActionSelect => draw_stub(&mut dh),
         UIPhase::BattleTargetSelect => draw_stub(&mut dh),
         UIPhase::BattleItemSelect => draw_stub(&mut dh),
@@ -277,19 +331,17 @@ fn main()
 
     let mut game_state = GameState
     {
-        // TODO - figure out player and enemy locations, and player and enemy hitbox sizes - to be
-        // done in UG-6
         player_x: 200,
-        player_y: 200,
-        player_width: 0,
-        player_height: 0,
+        player_y: 150,
+        player_width: 30,
+        player_height: 100,
+        player_head_radius: 15,
 
-        enemy_x: 0,
-        enemy_y: 0,
-        enemy_width: 0,
-        enemy_height: 0,
+        enemy_x: 575,
+        enemy_y: 225,
+        enemy_radius: 50,
 
-        player_overworld_speed: 4,
+        player_overworld_speed: 3,
 
         ui_phase: UIPhase::Overworld,
     };
