@@ -246,14 +246,14 @@ fn main()
         overworld_state: OverworldState
         {
             player_x: 200,
-            player_y: 200,
-            player_width: 0,
-            player_height: 0,
+            player_y: 150,
+            player_width: 30,
+            player_height: 100,
             
-            enemy_x: 0,
-            enemy_y: 0,
-            enemy_width: 0,
-            enemy_height: 0,
+            enemy_x: 575,
+            enemy_y: 225,
+            enemy_width: 50,
+            enemy_height: 50,
         }
     };
 
