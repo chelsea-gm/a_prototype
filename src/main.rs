@@ -63,7 +63,10 @@ struct BattleState
 {
     player_hp: i32,
     player_sp: i32,
+    player_power: i32,
+
     enemy_hp: i32,
+    enemy_power: i32,
 }
 
 
@@ -93,9 +96,20 @@ fn has_hitbox_collision(game_state: &GameState) -> bool
         return true;
     }
 
-    // TODO: check if the player's body collides with the enemy
+    // check if the player's body collides with the enemy
+    // TODO: determine algorithm for square-circle hitbox collision
 
     return false;
+}
+
+// shift_battle_phase - shift to a new phase of the battle UI
+fn shift_battle_phase(game_state: &mut GameState, new_phase: UIPhase)
+{
+    // transition to new UI phase
+    game_state.ui_phase = new_phase;
+
+    // set default menu selection
+    game_state.menu_selection_cursor = 0;
 }
 
 // update_state_overworld - update state while player is on the overworld
@@ -105,7 +119,7 @@ fn update_state_overworld(game_state: &mut GameState, rl: &mut RaylibHandle)
     if has_hitbox_collision(game_state)
     {
         // go directly into battle if the player and enemy collide
-        game_state.ui_phase = UIPhase::BattleActionSelect;
+        shift_battle_phase(game_state, UIPhase::BattleActionSelect);
     }
 
     // check if a movement key is down
@@ -172,53 +186,127 @@ fn update_state_battle_action_select(game_state: &mut GameState, rl: &mut Raylib
         else if game_state.menu_selection_cursor == 1
         {
             // skills selected
-            game_state.ui_phase = UIPhase::BattleItemSelect;
+            shift_battle_phase(game_state, UIPhase::BattleItemSelect);
         }
         else if game_state.menu_selection_cursor == 2
         {
             // items selected
-            game_state.ui_phase = UIPhase::BattleItemSelect;
+            shift_battle_phase(game_state, UIPhase::BattleItemSelect);
         }
     }
 }
 
 // update_state_battle_target_select - update state while player is selecting a target in battle
-fn update_state_battle_target_select(game_state: &mut GameState, rl: &mut RaylibHandle)
+fn update_state_battle_target_select(game_state: &mut GameState, battle_state: &mut BattleState, rl: &mut RaylibHandle)
 {
-    // TODO: update battle target select state
+    // check if an action key is down
+    if rl.is_key_down(raylib::consts::KeyboardKey::KEY_SPACE)
+        || rl.is_key_down(raylib::consts::KeyboardKey::KEY_ENTER)
+    {
+        // hit enemy with damage
+        battle_state.enemy_hp -= battle_state.player_power;
+        if battle_state.enemy_hp < 0
+        {
+            battle_state.enemy_hp = 0;
+        }
+
+        // shift to damage display
+        shift_battle_phase(game_state, UIPhase::BattleDamageDisplay);
+    }
 }
 
 // update_state_battle_item_select - update state while player is selecting an item in battle
 fn update_state_battle_item_select(game_state: &mut GameState, rl: &mut RaylibHandle)
 {
-    // TODO: update battle item select state
+    // TODO: this value shouldn't be hard-coded (another reason for a lookup table, or perhaps a valued enum, of menu options...)
+    let menu_items = 3u32;
+
+    // check if an action key is down
+    if rl.is_key_down(raylib::consts::KeyboardKey::KEY_W)
+        || rl.is_key_down(raylib::consts::KeyboardKey::KEY_UP)
+    {
+        // move menu selection cursor up, if there's room to move up
+        if game_state.menu_selection_cursor > 0
+        {
+            game_state.menu_selection_cursor -= 1;
+        }
+    }
+    else if rl.is_key_down(raylib::consts::KeyboardKey::KEY_S)
+        || rl.is_key_down(raylib::consts::KeyboardKey::KEY_DOWN)
+    {
+        // move menu selection cursor down, if there's room to move down
+        if game_state.menu_selection_cursor < menu_items - 1
+        {
+            game_state.menu_selection_cursor += 1;
+        }
+    }
+    else if rl.is_key_down(raylib::consts::KeyboardKey::KEY_SPACE)
+        || rl.is_key_down(raylib::consts::KeyboardKey::KEY_ENTER)
+    {
+        // TODO: get rid of magic numbers; implement lookup table, perhaps?
+        if game_state.menu_selection_cursor == 0
+        {
+            // nothing selected
+        }
+        else if game_state.menu_selection_cursor == 1
+        {
+            // nothing selected
+        }
+        else if game_state.menu_selection_cursor == 2
+        {
+            // back selected
+            shift_battle_phase(game_state, UIPhase::BattleActionSelect);
+        }
+    }
+    else if rl.is_key_down(raylib::consts::KeyboardKey::KEY_BACKSPACE)
+    {
+        // go back
+        shift_battle_phase(game_state, UIPhase::BattleActionSelect);
+    }
 }
 
 // update_state_battle_damage_display - update state while player is viewing damage in battle
-fn update_state_battle_damage_display(game_state: &mut GameState, rl: &mut RaylibHandle)
+fn update_state_battle_damage_display(game_state: &mut GameState, battle_state: &mut BattleState, rl: &mut RaylibHandle)
 {
-    // TODO: update battle damage screen state
+    // TODO: 3 second timer
+
+    if battle_state.enemy_hp > 0
+    {
+        // move to the enemy's turn
+        shift_battle_phase(game_state, UIPhase::BattleEnemyTurn);
+    }
+    else
+    {
+        // go to victory
+        shift_battle_phase(game_state, UIPhase::Victory);
+    }
 }
 
 // update_state_battle_enemy_turn - update state while player is viewing enemy turn in battle
-fn update_state_battle_enemy_turn(game_state: &mut GameState, rl: &mut RaylibHandle)
+fn update_state_battle_enemy_turn(game_state: &mut GameState, battle_state: &mut BattleState, rl: &mut RaylibHandle)
 {
-    // TODO: update battle enemy turn state
+    // enemy hits the player
+    battle_state.player_hp -= battle_state.enemy_power;
+
+    // TODO: 3 second timer
+
+    // move to the next turn
+    shift_battle_phase(game_state, UIPhase::BattleActionSelect);
 }
 
 // update_state - check for keyboard input and timeouts (?), and update game state according to
 // which UI phase the player is currently in
 // TODO: will probably need to pass a mutable reference to battle state into these functions as well
-fn update_state(game_state: &mut GameState, rl: &mut RaylibHandle)
+fn update_state(game_state: &mut GameState, battle_state: &mut BattleState, rl: &mut RaylibHandle)
 {
     match &game_state.ui_phase
     {
         UIPhase::Overworld => update_state_overworld(game_state, rl),
         UIPhase::BattleActionSelect => update_state_battle_action_select(game_state, rl),
-        UIPhase::BattleTargetSelect => update_state_battle_target_select(game_state, rl),
+        UIPhase::BattleTargetSelect => update_state_battle_target_select(game_state, battle_state, rl),
         UIPhase::BattleItemSelect => update_state_battle_item_select(game_state, rl),
-        UIPhase::BattleDamageDisplay => update_state_battle_damage_display(game_state, rl),
-        UIPhase::BattleEnemyTurn => update_state_battle_enemy_turn(game_state, rl),
+        UIPhase::BattleDamageDisplay => update_state_battle_damage_display(game_state, battle_state, rl),
+        UIPhase::BattleEnemyTurn => update_state_battle_enemy_turn(game_state, battle_state, rl),
         UIPhase::Victory => (),
     }
 }
@@ -252,6 +340,8 @@ fn draw_player(game_state: &GameState, dh: &mut RaylibDrawHandle)
 // TODO: this code is way too procedural. replace with vector graphics representation?
 fn draw_enemy(game_state: &GameState, dh: &mut RaylibDrawHandle)
 {
+    // TODO: make this a sprite
+
     // draw enemy outline
     dh.draw_circle_lines(game_state.enemy_x + game_state.enemy_radius,
                          game_state.enemy_y + game_state.enemy_radius,
@@ -366,7 +456,7 @@ fn main()
     {
         screen_width: 800,
         screen_height: 600,
-        target_fps: 60
+        target_fps: 60,
     };
 
     // initialize game state parameters
@@ -374,7 +464,10 @@ fn main()
     {
         player_hp: 100,
         player_sp: 20,
+        player_power: 30,
+
         enemy_hp: 60,
+        enemy_power: 20,
     };
 
     let mut game_state = GameState
@@ -408,7 +501,7 @@ fn main()
     // main game loop
     while !rl.window_should_close()
     {
-        update_state(&mut game_state, &mut rl);
+        update_state(&mut game_state, &mut battle_state, &mut rl);
         draw_graphics(&game_state, &mut rl, &thread);
     }
 
